@@ -3,6 +3,8 @@ import numpy as np
 import os
 import argparse
 
+from utils import *
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default='data/')
@@ -30,7 +32,7 @@ def read_data(args):
     return funds, details, calendar
 
 
-def build_fund_daily_price_table(funds, details, calendar):
+def build_fund_daily_price_table(funds, details, calendar, inter=False):
     """
     build up new data table in the form of list [fund1, fund2, fund3, ...]
     each fund is a dictionary
@@ -43,8 +45,28 @@ def build_fund_daily_price_table(funds, details, calendar):
     :param funds: fund data
     :param details: detail data
     :param calendar: all the possible dates
+    :param inter: interpolate the missing values
     :return: new data table
     """
+    def interpolate_price_table(price_data, calendar, begin_date, end_date):
+        """
+        make up the missing value in the price table
+        :param price_data: as below
+        :param calendar: all the possible dates
+        :return: interpolated price date
+        """
+        available_dates = price_data.keys()
+        for _date in calendar:
+            if (_date > begin_date) and (_date < end_date) and (_date not in available_dates):
+                date_index = calendar.index(_date)
+                prev_price = price_data[calendar[date_index - 1]]
+                _i = date_index + 1
+                while (calendar[_i] <= end_date) and (calendar[_i] not in available_dates):
+                    _i += 1
+                end_price = price_data[calendar[_i]]
+                price_data[_date] = interpolate(prev_price, end_price)
+        return price_data
+
     fund_price_table = list()
     for _symbol in details['Symbol']:
         fund_data = dict()
@@ -58,22 +80,21 @@ def build_fund_daily_price_table(funds, details, calendar):
             if count_trade_day == 0:
                 fund_data['Begin_date'] = _date
                 count_trade_day += 1
-        fund_data['Price'] = price_data
         fund_data['End_date'] = _date
 
-        # might need to interpolate for the missing values
+        if inter:
+            price_data = interpolate_price_table(price_data, calendar, fund_data['Begin_date'], fund_data['End_date'])
+
+        fund_data['Price'] = price_data
         fund_price_table.append(fund_data)
 
     return fund_price_table
 
 
-def main(args):
+def build_lagged_return_table(fund_price_table, calendar, lag_length):
     raise NotImplementedError
 
 
 if __name__ == '__main__':
-    # main()
     funds, details, calendar = read_data(args)
-    fund_price_table = build_fund_daily_price_table(funds, details, calendar)
-
-
+    fund_price_table = build_fund_daily_price_table(funds, details, calendar, inter=True)

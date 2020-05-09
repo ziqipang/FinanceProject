@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import argparse
 
-from analysis import *
+from data_manipulation import *
+from utils import *
 
 
 plt.rcParams['font.family'] = 'Calibri'
@@ -28,18 +29,6 @@ def date_occurrence_for_funds(args):
     """
     funds, details, calendar = read_data(args)
     fund_price_table = build_fund_daily_price_table(funds, details, calendar)
-
-    def date_to_season(date):
-        """
-        convert date string to month
-        :param date: date string
-        :return: month string
-        """
-        date = date[:-3]
-        year = date[:4]
-        month = int(date[5:7])
-        season = month // 4 + 1
-        return year + '-' + str(season)
 
     months = list()
     for _date in calendar:
@@ -69,5 +58,52 @@ def date_occurrence_for_funds(args):
     f.savefig(os.path.join(args.fig_dir, 'seasonly_occ.pdf'))
 
 
+def period_length_for_funds(args):
+    """
+    time period for funds, draw a bar plot
+    :param args: argument
+    :return: none
+    """
+    funds, details, calendar = read_data(args)
+    fund_price_table = build_fund_daily_price_table(funds, details, calendar, inter=True)
+
+    period_length = []
+    short_period_fund_symbols = []
+    long_period_fund_symbols = []
+    for _fund in fund_price_table:
+        start_date = _fund['Begin_date']
+        end_date = _fund['End_date']
+
+        period = calendar.index(end_date) - calendar.index(start_date) + 1
+        if period < 100:
+            short_period_fund_symbols.append(_fund['Symbol'])
+        if period > 2000:
+            long_period_fund_symbols.append(_fund['Symbol'])
+        period_length.append({'len': period, 'symbol': _fund['Symbol']})
+
+    period_length = sorted(period_length, key=lambda x: x['len'])
+
+    f = plt.figure()
+    matplotlib.rc('xtick', labelsize=8)
+    matplotlib.rc('ytick', labelsize=10)
+
+    length = []
+    symbols = []
+    for _item in period_length:
+        length.append(_item['len'])
+        symbols.append(_item['symbol'])
+    plt.bar(np.arange(len(period_length)), length, tick_label=symbols, color='green')
+    plt.xticks(rotation=270)
+    plt.xlabel('Funds Symbols')
+    plt.ylabel('Length of Available Trading Data Interval')
+    plt.show()
+
+    f.savefig(os.path.join(args.fig_dir, 'fund_period_length.pdf'))
+
+    print(short_period_fund_symbols)
+    print(long_period_fund_symbols)
+
+
 if __name__ == '__main__':
-    date_occurrence_for_funds(args)
+    # date_occurrence_for_funds(args)
+    period_length_for_funds(args)
