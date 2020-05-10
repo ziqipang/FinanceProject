@@ -91,10 +91,73 @@ def build_fund_daily_price_table(funds, details, calendar, inter=False):
     return fund_price_table
 
 
-def build_lagged_return_table(fund_price_table, calendar, lag_length):
-    raise NotImplementedError
+def filter_usable_funds(fund_price_table, calendar, method='time'):
+    """
+    filter out the usable funds
+    :param fund_price_table: information for funds
+    :param calendar: all possible dates
+    :param method: how to filter out funds, by default using time period length
+    :return: symbols for usable funds
+    """
+    fund_symbols = list()
+    for _fund in fund_price_table:
+        start_date = _fund['Begin_date']
+        end_date = _fund['End_date']
+        period = calendar.index(end_date) - calendar.index(start_date) + 1
+        if period >= 500:
+            fund_symbols.append(_fund['Symbol'])
+
+    return fund_symbols
+
+
+def build_lagged_return_table(fund_price_table, calendar, start_date, usable_funds, lag_length):
+    """
+    return data for each usable fund in given time period
+    :param fund_price_table: fund data
+    :param calendar: possible dates
+    :param start_date: from when
+    :param usable_funds: which funds to compute
+    :param lag_length: width of window size
+    :return: data in similar form of fund_price table
+    list [fund1, fund2, fund3, ...]
+    each fund is a dictionary
+    {
+        'Symbol': symbol,
+        'Return': dict of AvgPrice in the form of dict {date: price}
+    }
+    """
+    lagged_return_table = list()
+    for _fund in fund_price_table:
+        if _fund['Symbol'] not in usable_funds:
+            continue
+        fund_data = dict()
+        fund_data['Symbol'] = _fund['Symbol']
+
+        # find the first usable date
+        dates_in_fund = sorted(_fund['Price'].keys())
+        if dates_in_fund[0] < start_date:
+            first_date_index = calendar.index(start_date)
+        else:
+            first_date_index = calendar.index(dates_in_fund[0])
+
+        price_data = dict()
+        while first_date_index + lag_length < len(calendar) and calendar[first_date_index + lag_length] in dates_in_fund:
+            begin_price = _fund['Price'][calendar[first_date_index]]
+            end_price = _fund['Price'][calendar[first_date_index + lag_length]]
+            return_rate = (end_price - begin_price) / (begin_price + 1e-10)
+            price_data[calendar[first_date_index]] = return_rate
+            first_date_index += 1
+
+        fund_data['Return'] = price_data
+        print(len(price_data.keys()))
+        lagged_return_table.append(fund_data)
+
+    return lagged_return_table
 
 
 if __name__ == '__main__':
     funds, details, calendar = read_data(args)
     fund_price_table = build_fund_daily_price_table(funds, details, calendar, inter=True)
+    usable_funds = filter_usable_funds(fund_price_table, calendar)
+    lagged_return_table = build_lagged_return_table(fund_price_table, calendar, '2015-10-01', usable_funds, 90)
+
