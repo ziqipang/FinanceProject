@@ -159,5 +159,5 @@ if __name__ == '__main__':
     funds, details, calendar = read_data(args)
     fund_price_table = build_fund_daily_price_table(funds, details, calendar, inter=True)
     usable_funds = filter_usable_funds(fund_price_table, calendar)
-    lagged_return_table = build_lagged_return_table(fund_price_table, calendar, '2015-10-01', usable_funds, 90)
+    lagged_return_table = build_lagged_return_table(fund_price_table, calendar, '2015-10-01', usable_funds, args.lag_length)
 
