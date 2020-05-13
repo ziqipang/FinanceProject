@@ -58,7 +58,15 @@ def cluster(cov_mat, n_clusters: int) -> None:
     do_cluster = sklearn.cluster.AgglomerativeClustering(n_clusters=n_clusters,
                                                          affinity='precomputed',
                                                          linkage='complete')
-    do_cluster.fit(1 - cov_mat)
+    # 计算相关性矩阵
+    rho = np.zeros(shape=cov_mat.shape)
+    n = cov_mat.shape[0]
+    for i in range(n):
+        for j in range(i, n):
+            rho[i][j] = cov_mat[i][j] / np.sqrt(cov_mat[i][i] * cov_mat[j][j])
+            rho[j][i] = rho[i][j]
+
+    do_cluster.fit(1 - rho)
     print(do_cluster.labels_)
     plt.hist(do_cluster.labels_, bins=n_clusters)
     plt.show()
