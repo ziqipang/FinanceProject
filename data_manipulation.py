@@ -1,27 +1,19 @@
 import pandas as pd
 import numpy as np
 import os
-import argparse
 
 from utils import *
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--data_dir', type=str, default='data/')
-parser.add_argument('--lag_length', type=int, default=90, help='the interval to compute')
-
-args = parser.parse_args()
-
-
-def read_data(args):
+def read_data(data_dir):
     """
     read the data, output funds, details and calendar
     calendar is the ordered list for all possible dates
     :param args: argument, specifying the file path
     :return: funds, details, calendar
     """
-    fund_path = os.path.join(args.data_dir, 'C_Fund_Return_Final.csv')
-    detail_path = os.path.join(args.data_dir, 'C_Fund_Summary_Final.csv')
+    fund_path = os.path.join(data_dir, 'C_Fund_Return_Final.csv')
+    detail_path = os.path.join(data_dir, 'C_Fund_Summary_Final.csv')
 
     funds = pd.read_csv(fund_path)
     details = pd.read_csv(detail_path)
@@ -149,14 +141,20 @@ def build_lagged_return_table(fund_price_table, calendar, start_date, usable_fun
             first_date_index += 1
 
         fund_data['Return'] = price_data
-        print(len(price_data.keys()))
+        # print(len(price_data.keys()))
         lagged_return_table.append(fund_data)
 
     return lagged_return_table
 
 
 if __name__ == '__main__':
-    funds, details, calendar = read_data(args)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_dir', type=str, default='data/')
+    parser.add_argument('--lag_length', type=int, default=90, help='the interval to compute')
+    args = parser.parse_args()
+
+    funds, details, calendar = read_data(args.data_dir)
     fund_price_table = build_fund_daily_price_table(funds, details, calendar, inter=True)
     usable_funds = filter_usable_funds(fund_price_table, calendar)
     lagged_return_table = build_lagged_return_table(fund_price_table, calendar, '2015-10-01', usable_funds, args.lag_length)
