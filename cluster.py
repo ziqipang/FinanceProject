@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import sklearn.cluster
 import numpy as np
 import pandas as pd
@@ -72,7 +73,35 @@ def cluster(cov_mat, n_clusters: int) -> None:
     plt.show()
 
 
-def optim_weights(fund_num, mean_array, cov_mat, risk_free) -> dict:
+def grouped_mean_cov(mean_array: np.ndarray, cov_mat: np.ndarray, group_list: list) -> (np.ndarray, np.ndarray):
+    """
+    计算分组后的均值、协方差（组内权重相同）。
+    group_list 形式: 每个元素是一组内成员的列表。
+    如: [[3, 0], [1, 2], [4]]
+
+    :param mean_array: 分组前均值
+    :param cov_mat: 分组前协方差
+    :param group_list: 分组
+    :return: 分组后均值、协方差
+    """
+    group_num = len(group_list)
+    ma = np.zeros(group_num)
+    cm = np.zeros(shape=(group_num, group_num))
+    for i in range(group_num):
+        for m in group_list[i]:
+            ma[i] += mean_array[m]
+        ma[i] /= len(group_list[i])
+    for i in range(group_num):
+        for j in range(i, group_num):
+            for m in group_list[i]:
+                for n in group_list[j]:
+                    cm[i][j] += cov_mat[m][n]
+            cm[i][j] /= len(group_list[i]) * len(group_list[j])
+            cm[j][i] = cm[i][j]
+    return ma, cm
+
+
+def optim_weights(fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, risk_free: float, w_constraint: (float, float) = (0, 1)) -> dict:
     import scipy.optimize as sco
 
     def statistics(weights):
@@ -86,7 +115,7 @@ def optim_weights(fund_num, mean_array, cov_mat, risk_free) -> dict:
         return (risk_free - s[0]) / s[1]
 
     # long only
-    bnds = tuple((0, 1) for x in range(fund_num))
+    bnds = tuple(w_constraint for x in range(fund_num))
 
     # sum of weights eq to 1
     cons = ({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
