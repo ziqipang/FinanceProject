@@ -53,7 +53,7 @@ def cov(td1: dict, td2: dict) -> float:
     return (s12 - s1 * s2 / n) / n
 
 
-def cluster(cov_mat, n_clusters: int) -> None:
+def cluster(cov_mat: np.ndarray, n_clusters: int) -> None:
     # 分类，效果不好
     # linkage: {“ward”, “complete”, “average”, “single”}
     do_cluster = sklearn.cluster.AgglomerativeClustering(n_clusters=n_clusters,
@@ -129,6 +129,27 @@ def optim_weights(fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, ri
         'weights': opts['x'],
         'sharpe_ratio': -opts['fun']
     }
+
+
+def risky_portion(r: float, sigma: float, A: float, risk_free: float, borrow_rate: float) -> float:
+    """
+    计算 portfolio 与无风险资产之间的分配
+
+    :param r: portfolio 回报
+    :param sigma: portfolio 标准差
+    :param A: 衡量风险厌恶程度的系数
+    :param risk_free: 无风险利率
+    :param borrow_rate: 借贷利率
+    :return: portfolio 分配的百分比
+    """
+    y = (r - risk_free) / A / sigma ** 2
+    if y < 0:
+        y = 0
+    elif y > 1:
+        y = (r - borrow_rate) / A / sigma ** 2
+        if y <= 1:
+            y = 1
+    return y
 
 
 def main():
