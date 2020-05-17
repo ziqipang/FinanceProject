@@ -54,8 +54,15 @@ def cov(td1: dict, td2: dict) -> float:
 
 
 def cluster(cov_mat: np.ndarray, n_clusters: int) -> None:
-    # 分类，效果不好
-    # linkage: {“ward”, “complete”, “average”, “single”}
+    """
+    @deprecated
+    分类，效果不好
+    linkage: {“ward”, “complete”, “average”, “single”}
+
+    :param cov_mat: 协方差矩阵
+    :param n_clusters: 分类的组数
+    :return: 无
+    """
     do_cluster = sklearn.cluster.AgglomerativeClustering(n_clusters=n_clusters,
                                                          affinity='precomputed',
                                                          linkage='complete')
@@ -101,7 +108,18 @@ def grouped_mean_cov(mean_array: np.ndarray, cov_mat: np.ndarray, group_list: li
     return ma, cm
 
 
-def optim_weights(fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, risk_free: float, w_constraint: (float, float) = (0, 1)) -> dict:
+def optim_weights(fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, risk_free: float,
+                  w_constraint: (float, float) = (0, 1)) -> dict:
+    """
+    运用 Markowitz portfolio 模型计算最优权重
+
+    :param fund_num: N
+    :param mean_array: 均值
+    :param cov_mat: 方差
+    :param risk_free: 无风险利率
+    :param w_constraint: 对权重的限制
+    :return: 包含权重等信息的 dict
+    """
     import scipy.optimize as sco
 
     def statistics(weights):
@@ -125,7 +143,10 @@ def optim_weights(fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, ri
                         np.array(fund_num * [1. / fund_num, ]),
                         method='SLSQP', bounds=bnds, constraints=cons)
 
+    r, sigma = statistics(opts['x'])
     return {
+        'r': r,
+        'sigma': sigma,
         'weights': opts['x'],
         'sharpe_ratio': -opts['fun']
     }
@@ -162,16 +183,40 @@ def main():
     usable_funds = filter_usable_funds(fund_price_table, calendar)
     lagged_return_table = build_lagged_return_table(fund_price_table, calendar, '2015-10-01', usable_funds, 90)
 
+    # 手动给出的分组，57 funds
+    mannual_cluster = [
+        [159915, 161130],
+        [512090],
+        [513000, 159934],
+        [161131, 161132],
+        [161124, 510900],
+        [510100, 510130],
+        [159901, 159950],
+        [150106, 150107, 161118],
+        [502048, 502049, 502050],
+        [150257, 150258],
+        [150259, 150260],
+        [150255, 150256],
+        [502006, 502007, 502008],
+        [502003, 502004, 502005, 512560],
+        [511800, 159001],
+        [502010, 502011, 502012],
+        [161125, 161126, 161128, 161127, 161129],
+        [510310, 512010, 512070],
+        [161117, 161116, 161115, 161119],
+        [515110, 515180, 513090, 159807, 513050, 512570, 510580, 515810]
+    ]
+
     r_n = len(lagged_return_table)  # n = 46
     li = list()
 
+    # 计算均值
     mean_vec = np.zeros(r_n)
     for i, seq in enumerate(lagged_return_table):
         li.append(seq['Symbol'])
         mean_vec[i] = mean(seq['Return'])
 
-    # np.savetxt(os.path.join(os.getcwd(), './tmp/mean_vec.csv'), mean_vec, delimiter=',')
-
+    # 计算协方差矩阵
     cov_mat = np.zeros(shape=(r_n, r_n))
     for i in range(r_n):
         for j in range(i, r_n):
@@ -180,20 +225,43 @@ def main():
             cov_mat[i][j] = cov(seq1['Return'], seq2['Return'])
             cov_mat[j][i] = cov_mat[i][j]
 
-    # np.savetxt(os.path.join(os.getcwd(), './tmp/cov_mat.csv'), cov_mat, delimiter=',')
+    # 得到分组
+    # mannual_cluster 包含所有 fund，所以要过滤一下
+    filtered_cluster = list()
+    for g in mannual_cluster:
+        tmp_list = list()
+        for f in g:
+            try:
+                i = li.index(f)
+                tmp_list.append(i)
+            except ValueError:
+                pass
+        if len(tmp_list) > 0:
+            filtered_cluster.append(tmp_list)
 
-    while True:
-        s = input('cluster or sharpe ratio: (0/1) ')
-        if s == '0':
-            cluster(cov_mat, 15)
-            break
-        elif s == '1':
-            res = optim_weights(r_n, mean_vec, cov_mat, 0)
-            print(res['weights'].round(3))
-            print(res['sharpe_ratio'])
-            break
-        else:
-            continue
+    # 得到分组后的 mean, cov
+    mean_vec, cov_mat = grouped_mean_cov(mean_vec, cov_mat, filtered_cluster)
+    g_n = len(mean_vec)
+    res = optim_weights(g_n, mean_vec, cov_mat, 0)
+    res['weights'] = res['weights'].round(3)
+
+    print('1. 投资组合构成')
+    print()
+    print('Sharpe Ratio: {}'.format(res['sharpe_ratio']))
+    print('r: {}'.format(res['r']))
+    print('sigma: {}'.format(res['sigma']))
+    print()
+    for i in range(g_n):
+        print('第{}组: {}'.format(i + 1, res['weights'][i]))
+        for index in filtered_cluster[i]:
+            print('{} '.format(li[index]))
+        print()
+
+    print('2. 风险资产、无风险资产分配')
+    print()
+    A = 2000
+    y = risky_portion(res['r'], res['sigma'], A, 0, 0.002)
+    print('风险资产投资比例: {}'.format(np.array(y).round(3)))
 
 
 if __name__ == '__main__':
