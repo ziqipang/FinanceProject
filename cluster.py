@@ -173,6 +173,25 @@ def risky_portion(r: float, sigma: float, A: float, risk_free: float, borrow_rat
     return y
 
 
+def plot_portfolio_frontier(sample_num: int, fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, risk_free: float) -> None:
+    import matplotlib.pyplot as plt
+    portfolio_returns = np.zeros(sample_num)
+    portfolio_volatilities = np.zeros(sample_num)
+    for p in range(sample_num):
+        weights = np.random.random(fund_num)
+        weights /= np.sum(weights)
+        portfolio_returns[p] = np.sum(mean_array * weights)
+        portfolio_volatilities[p] = np.sqrt(np.dot(weights.T, np.dot(cov_mat, weights)))
+    f = plt.figure()
+    plt.scatter(portfolio_volatilities, portfolio_returns, c=(portfolio_returns - risk_free) / portfolio_volatilities, marker='o')
+    plt.grid(True)
+    plt.title('portfolio frontier')
+    plt.xlabel('expected volatility')
+    plt.ylabel('expected return')
+    plt.colorbar(label='Sharpe ratio')
+    f.savefig(os.path.join(os.getcwd(), 'figs/portfolio_frontier.pdf'))
+
+
 def main():
     funds = pd.read_csv('data/C_Fund_Return_Final.csv')
     details = pd.read_csv('data/C_Fund_Summary_Final.csv')
@@ -262,6 +281,8 @@ def main():
     A = 2000
     y = risky_portion(res['r'], res['sigma'], A, 0, 0.002)
     print('风险资产投资比例: {}'.format(np.array(y).round(3)))
+
+    plot_portfolio_frontier(5000, g_n, mean_vec, cov_mat, 0)
 
 
 if __name__ == '__main__':
