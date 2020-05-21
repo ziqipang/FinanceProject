@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from data_manipulation import *
 import matplotlib.pyplot as plt
+import matplotlib
 
 
 def mean(time_dict: dict) -> float:
@@ -174,7 +175,6 @@ def risky_portion(r: float, sigma: float, A: float, risk_free: float, borrow_rat
 
 
 def plot_portfolio_frontier(sample_num: int, fund_num: int, mean_array: np.ndarray, cov_mat: np.ndarray, risk_free: float) -> None:
-    import matplotlib.pyplot as plt
     portfolio_returns = np.zeros(sample_num)
     portfolio_volatilities = np.zeros(sample_num)
     for p in range(sample_num):
@@ -193,6 +193,62 @@ def plot_portfolio_frontier(sample_num: int, fund_num: int, mean_array: np.ndarr
 
 
 def main():
+
+    def plot_return(fund_num: int, mean_vec: np.ndarray, highlight: list) -> None:
+        green_x = list()
+        for i in range(fund_num):
+            if i + 1 not in highlight:
+                green_x.append(i + 1)
+
+        green_y = list()
+        for i in green_x:
+            green_y.append(mean_vec[i - 1])
+
+        red_x = highlight
+        red_y = list()
+        for i in red_x:
+            red_y.append(mean_vec[i - 1])
+
+        f = plt.figure()
+        matplotlib.rc('xtick', labelsize=8)
+        matplotlib.rc('ytick', labelsize=10)
+        plt.bar(green_x, green_y, tick_label=green_x)
+        plt.bar(red_x, red_y, tick_label=red_x)
+        plt.xticks(rotation=270)
+        plt.xlabel('group')
+        plt.ylabel('return')
+        plt.title("return of each group")
+        f.savefig(os.path.join(os.getcwd(), 'figs/group_return.pdf'))
+
+    def plot_var(fund_num: int, cov_mat: np.ndarray, highlight: list) -> None:
+        var = cov_mat.diagonal()
+        np.savetxt(os.path.join(os.getcwd(), 'tmp/group_var.csv'), var)
+
+        green_x = list()
+        for i in range(fund_num):
+            if i + 1 not in highlight:
+                green_x.append(i + 1)
+
+        green_y = list()
+        for i in green_x:
+            green_y.append(var[i - 1])
+
+        red_x = highlight
+        red_y = list()
+        for i in red_x:
+            red_y.append(var[i - 1])
+
+        f = plt.figure()
+        matplotlib.rc('xtick', labelsize=8)
+        matplotlib.rc('ytick', labelsize=10)
+        plt.bar(green_x, green_y, tick_label=green_x)
+        plt.bar(red_x, red_y, tick_label=red_x)
+        plt.xticks(rotation=270)
+        plt.xlabel('group')
+        plt.ylabel('variance')
+        plt.title("variance of each group")
+        f.savefig(os.path.join(os.getcwd(), 'figs/group_var.pdf'))
+
     funds = pd.read_csv('data/C_Fund_Return_Final.csv')
     details = pd.read_csv('data/C_Fund_Summary_Final.csv')
     dates = list(funds['TradingDate'])
@@ -261,7 +317,7 @@ def main():
     # 得到分组后的 mean, cov
     mean_vec, cov_mat = grouped_mean_cov(mean_vec, cov_mat, filtered_cluster)
     g_n = len(mean_vec)
-    res = optim_weights(g_n, mean_vec, cov_mat, 0)
+    res = optim_weights(g_n, mean_vec, cov_mat, 0.03/365*90)
     res['weights'] = res['weights'].round(3)
 
     print('1. 投资组合构成')
@@ -278,11 +334,14 @@ def main():
 
     print('2. 风险资产、无风险资产分配')
     print()
-    A = 2000
-    y = risky_portion(res['r'], res['sigma'], A, 0, 0.002)
+    A = 7.3/3*90  # 219
+    y = risky_portion(res['r'], res['sigma'], A, 0.03/365*90, 0.05/365*90)
     print('风险资产投资比例: {}'.format(np.array(y).round(3)))
 
-    plot_portfolio_frontier(5000, g_n, mean_vec, cov_mat, 0)
+    plot_return(g_n, mean_vec, [2, 10, 12, 15])
+    plot_var(g_n, cov_mat, [2, 10, 12, 15])
+
+    # plot_portfolio_frontier(5000, g_n, mean_vec, cov_mat, 0)
 
 
 if __name__ == '__main__':
